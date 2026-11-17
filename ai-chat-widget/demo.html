@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Evergreen Family Dental</title>
+<style>
+  :root{--bg:#fbfaf7;--ink:#17201c;--muted:#5f6b66;--accent:#1f7a5a;--card:#fff;--line:#e4e8e5}
+  @media (prefers-color-scheme:dark){:root{--bg:#111614;--ink:#e9efec;--muted:#9aa8a2;--accent:#3fb388;--card:#1a211e;--line:#2c3632}}
+  *{box-sizing:border-box}
+  body{margin:0;font:17px/1.6 Georgia,serif;background:var(--bg);color:var(--ink)}
+  header,section,footer{max-width:1000px;margin:0 auto;padding:0 16px}
+  nav{display:flex;justify-content:space-between;align-items:center;padding:22px 0;font:600 15px system-ui,sans-serif}
+  nav span{color:var(--muted);font-weight:400}
+  .hero{padding:60px 0 50px}
+  .hero h1{font-size:clamp(34px,6vw,56px);line-height:1.1;margin:0 0 16px;font-weight:400}
+  .hero p{color:var(--muted);max-width:560px;margin:0 0 28px}
+  .cta{display:inline-block;background:var(--accent);color:#fff;padding:13px 22px;border-radius:10px;text-decoration:none;font:600 15px system-ui,sans-serif}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;padding:20px 0 60px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px}
+  .card h3{margin:0 0 6px;font:600 17px system-ui,sans-serif}
+  .card p{margin:0;color:var(--muted);font-size:15px}
+  .card b{color:var(--accent);font-family:system-ui,sans-serif}
+  footer{padding:30px 16px 120px;color:var(--muted);font:14px system-ui,sans-serif;border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+<header><nav>Evergreen Family Dental <span>Portland, OR · (503) 555-0142</span></nav></header>
+<section class="hero">
+  <h1>Gentle dental care for the whole family.</h1>
+  <p>Check-ups, whitening, Invisalign and implants in the Pearl District. Most insurance accepted, 0% financing available.</p>
+  <a class="cta" href="#services">See services &amp; prices</a>
+</section>
+<section id="services" class="grid">
+  <div class="card"><h3>Check-up &amp; cleaning</h3><p>Exam, X-rays and cleaning. <b>$99</b> for new patients.</p></div>
+  <div class="card"><h3>Teeth whitening</h3><p>One in-office visit. <b>$450</b></p></div>
+  <div class="card"><h3>Invisalign</h3><p>Free consultation with a 3D scan. From <b>$4,500</b></p></div>
+  <div class="card"><h3>Dental implants</h3><p>Including the crown. From <b>$3,800</b></p></div>
+</section>
+<footer>Demo website for the AI chat widget. Evergreen Family Dental is a fictional clinic. Try the 💬 button in the corner.</footer>
+<script src="/widget.js" defer></script>
+</body>
+</html>
