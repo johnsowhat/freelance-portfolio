@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Shopify Sales Dashboard</title>
+<meta name="description" content="Drop a Shopify orders export and see revenue, average order value, repeat customers and best sellers. Runs entirely in your browser.">
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #6f6d68;
+    --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+    --series-1: #2a78d6; --up: #006300; --down: #d03b3b; --focus: #2a78d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #9a988f;
+      --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+      --series-1: #3987e5; --up: #0ca30c; --down: #e66767; --focus: #3987e5;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #9a988f;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --series-1: #3987e5; --up: #0ca30c; --down: #e66767; --focus: #3987e5;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 28px 16px 60px; }
+  header { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: end; justify-content: space-between; margin-bottom: 20px; }
+  h1 { font-size: 24px; margin: 0; }
+  .sub { color: var(--ink-2); margin: 2px 0 0; font-size: 14px; }
+  button { font: inherit; cursor: pointer; }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .btn { border: 1px solid var(--border); background: var(--surface); color: var(--ink); border-radius: 9px; padding: 8px 14px; font-size: 14px; }
+  .btn.primary { background: var(--series-1); border-color: transparent; color: #fff; font-weight: 600; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; background: var(--surface); }
+  .seg button { border: 0; background: none; color: var(--ink-2); padding: 7px 12px; font-size: 14px; }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); font-weight: 600; }
+  .filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
+  .filters .range { color: var(--muted); font-size: 13px; }
+  .drop { border: 2px dashed var(--axis); border-radius: 16px; padding: 48px 20px; text-align: center; background: var(--surface); }
+  .drop.over { border-color: var(--series-1); }
+  .drop h2 { margin: 0 0 6px; font-size: 20px; }
+  .drop p { color: var(--ink-2); margin: 0 0 18px; }
+  .drop .actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .privacy { color: var(--muted); font-size: 13px; margin-top: 16px; }
+  .error { color: var(--down); font-weight: 600; margin-top: 14px; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  @media (max-width: 480px) { .kpi .value { font-size: 22px; } .kpi { padding: 12px; } }
+  .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; }
+  .kpi .label { color: var(--ink-2); font-size: 13px; }
+  .kpi .value { font-size: 28px; font-weight: 650; letter-spacing: -0.01em; margin: 2px 0; }
+  .kpi .delta { font-size: 13px; color: var(--muted); }
+  .kpi .delta.up { color: var(--up); } .kpi .delta.down { color: var(--down); }
+  .grid2 { display: grid; grid-template-columns: 3fr 2fr; gap: 12px; }
+  @media (max-width: 860px) { .grid2 { grid-template-columns: 1fr; } }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px; min-width: 0; position: relative; }
+  .card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+  .card h2 { font-size: 15px; margin: 0; }
+  .link { border: 0; background: none; color: var(--series-1); font-size: 13px; padding: 2px 0; }
+  svg text { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .chart { width: 100%; display: block; touch-action: pan-y; }
+  .tip { position: absolute; pointer-events: none; background: var(--ink); color: var(--surface); border-radius: 8px; padding: 6px 9px; font-size: 12px;
+         line-height: 1.4; white-space: nowrap; opacity: 0; transition: opacity .1s; z-index: 2; }
+  .tip b { font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--grid); }
+  th { color: var(--ink-2); font-weight: 600; } td.num, th.num { text-align: right; }
+  .table-wrap { max-height: 320px; overflow: auto; }
+  .note { color: var(--muted); font-size: 12px; margin-top: 10px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>Sales dashboard</h1>
+      <p class="sub" id="source">Shopify orders export → revenue, customers and best sellers in seconds</p>
+    </div>
+    <div id="toolbar" hidden><button class="btn" id="new-file">Load another file</button></div>
+  </header>
+
+  <section id="start" class="drop" aria-labelledby="drop-title">
+    <h2 id="drop-title">Drop your Shopify orders CSV here</h2>
+    <p>Shopify admin → Orders → Export → “Plain CSV file”. Exports from WooCommerce in the same layout work too.</p>
+    <div class="actions">
+      <button class="btn primary" id="pick">Choose a file</button>
+      <button class="btn" id="sample">Try with sample data</button>
+    </div>
+    <input type="file" id="file" accept=".csv,text/csv" hidden>
+    <p class="privacy">🔒 Your file never leaves your computer: all numbers are calculated right here in the browser.</p>
+    <p class="error" id="error" role="alert" hidden></p>
+  </section>
+
+  <section id="dash" hidden>
+    <div class="filters" role="group" aria-label="Date range">
+      <div class="seg" id="ranges">
+        <button data-days="7" aria-pressed="false">Last 7 days</button>
+        <button data-days="30" aria-pressed="true">Last 30 days</button>
+        <button data-days="90" aria-pressed="false">Last 90 days</button>
+        <button data-days="0" aria-pressed="false">All time</button>
+      </div>
+      <span class="range" id="range-label"></span>
+    </div>
+
+    <div class="kpis" id="kpis"></div>
+
+    <div class="grid2">
+      <div class="card">
+        <div class="card-head"><h2>Revenue per day</h2><button class="link" data-toggle="daily">Show table</button></div>
+        <div id="daily-chart"></div>
+        <div class="table-wrap" id="daily-table" hidden></div>
+        <div class="tip" id="daily-tip" aria-hidden="true"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>Best sellers by revenue</h2><button class="link" data-toggle="products">Show table</button></div>
+        <div id="products-chart"></div>
+        <div class="table-wrap" id="products-table" hidden></div>
+        <div class="tip" id="products-tip" aria-hidden="true"></div>
+      </div>
+    </div>
+    <p class="note" id="footnote"></p>
+  </section>
+</main>
+
+<script type="module">
+import { parseCSV, toOrders, windows, summarize, change } from "./analytics.js";
+
+const $ = (id) => document.getElementById(id);
+const usd = (n, d = 0) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: d, minimumFractionDigits: d });
+const pct = (n) => (n * 100).toFixed(1) + "%";
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmtDay = (iso, long) => new Date(iso + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", ...(long && { year: "numeric", weekday: "short" }), timeZone: "UTC" });
+const SVG = "http://www.w3.org/2000/svg";
+
+let orders = [], days = 30;
+
+// ---------- loading ----------
+function load(text, label) {
+  try {
+    orders = toOrders(parseCSV(text));
+    if (!orders.length) throw new Error("No orders with a date were found in this file.");
+  } catch (e) {
+    $("error").textContent = e.message; $("error").hidden = false;
+    return;
+  }
+  $("error").hidden = true; $("start").hidden = true; $("dash").hidden = false; $("toolbar").hidden = false;
+  $("source").textContent = label;
+  render();
+}
+const readFile = (f) => f && f.text().then((t) => load(t, `${f.name} · ${f.size > 1e6 ? (f.size / 1e6).toFixed(1) + " MB" : Math.ceil(f.size / 1e3) + " KB"}`));
+$("pick").onclick = () => $("file").click();
+$("new-file").onclick = () => { $("dash").hidden = true; $("toolbar").hidden = true; $("start").hidden = false; $("file").value = ""; };
+$("file").onchange = (e) => readFile(e.target.files[0]);
+$("sample").onclick = () => fetch("sample-orders.csv").then((r) => r.text())
+  .then((t) => load(t, "Sample data: Northbound Coffee Co. (fictional store)"))
+  .catch(() => { $("error").textContent = "Couldn't load the sample file. Open this page through a web server, not as a local file."; $("error").hidden = false; });
+const drop = $("start");
+["dragenter", "dragover"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", (e) => readFile(e.dataTransfer.files[0]));
+
+$("ranges").onclick = (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  days = +b.dataset.days;
+  for (const x of $("ranges").children) x.setAttribute("aria-pressed", x === b);
+  render();
+};
+document.querySelectorAll("[data-toggle]").forEach((b) => b.onclick = () => {
+  const k = b.dataset.toggle, table = $(k + "-table"), showTable = table.hidden;
+  table.hidden = !showTable; $(k + "-chart").hidden = showTable;
+  b.textContent = showTable ? "Show chart" : "Show table";
+});
+
+// ---------- render ----------
+let last;
+function render() {
+  const w = windows(orders, days);
+  const s = summarize(w.current, w.from, w.to);
+  const p = w.previous && summarize(w.previous, "", "");
+  last = s;
+  $("range-label").textContent = `${fmtDay(w.from, true)} – ${fmtDay(w.to, true)}`;
+  const tiles = [
+    ["Revenue", usd(s.revenue), p && change(s.revenue, p.revenue)],
+    ["Orders", s.orders.toLocaleString("en-US"), p && change(s.orders, p.orders)],
+    ["Average order value", usd(s.aov, 2), p && change(s.aov, p.aov)],
+    ["Repeat customers", pct(s.repeatRate), p && (s.repeatRate - p.repeatRate), true],
+  ];
+  $("kpis").innerHTML = tiles.map(([label, value, d, points]) => {
+    let delta = days ? "no earlier period in this file" : "whole file";
+    let cls = "";
+    if (d != null && days) {
+      cls = d > 0.0005 ? "up" : d < -0.0005 ? "down" : "";
+      const arrow = cls === "up" ? "▲" : cls === "down" ? "▼" : "■";
+      delta = `${arrow} ${(Math.abs(d) * 100).toFixed(1)}${points ? " pts" : "%"} vs previous ${days} days`;
+    }
+    return `<div class="kpi"><div class="label">${label}</div><div class="value">${value}</div><div class="delta ${cls}">${delta}</div></div>`;
+  }).join("");
+  $("footnote").textContent = `Counts paid and partially refunded orders. ${s.refunded} fully refunded order${s.refunded === 1 ? "" : "s"} excluded. ${s.customers.toLocaleString("en-US")} customers in this period.`;
+
+  drawLine(s.daily);
+  drawBars(s.products.slice(0, 8));
+  $("daily-table").innerHTML = `<table><tr><th>Date</th><th class="num">Orders</th><th class="num">Revenue</th></tr>${
+    s.daily.map((d) => `<tr><td>${fmtDay(d.date, true)}</td><td class="num">${d.orders}</td><td class="num">${usd(d.revenue, 2)}</td></tr>`).join("")}</table>`;
+  $("products-table").innerHTML = `<table><tr><th>Product</th><th class="num">Units</th><th class="num">Revenue</th></tr>${
+    s.products.map((x) => `<tr><td>${esc(x.name)}</td><td class="num">${x.qty}</td><td class="num">${usd(x.revenue, 2)}</td></tr>`).join("")}</table>`;
+}
+
+function el(name, attrs, parent) {
+  const n = document.createElementNS(SVG, name);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  parent && parent.appendChild(n);
+  return n;
+}
+function niceMax(v) {
+  if (v <= 0) return 1;
+  const m = 10 ** Math.floor(Math.log10(v)), r = v / m;
+  return (r <= 1 ? 1 : r <= 2 ? 2 : r <= 2.5 ? 2.5 : r <= 5 ? 5 : 10) * m;
+}
+const short = (n) => n >= 1000 ? "$" + (n / 1000).toFixed(n % 1000 ? 1 : 0) + "k" : "$" + n;
+
+function showTip(tip, card, x, y, html) {
+  tip.innerHTML = html; tip.style.opacity = 1;
+  const cw = card.clientWidth, tw = tip.offsetWidth;
+  tip.style.left = Math.min(Math.max(x - tw / 2, 4), cw - tw - 4) + "px";
+  tip.style.top = Math.max(y - tip.offsetHeight - 12, 4) + "px";
+}
+
+// Single-series line: 2px line, recessive grid, crosshair + tooltip on hover/touch.
+function drawLine(data) {
+  const box = $("daily-chart"); box.innerHTML = "";
+  const W = Math.max(box.clientWidth, 280), H = 260, m = { t: 12, r: 12, b: 26, l: 46 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const top = Math.max(...data.map((d) => d.revenue), 1);
+  const step = niceMax(top / 4), steps = Math.ceil(top / step), max = step * steps;  // round ticks: $500, $1k…
+  const x = (i) => m.l + (data.length < 2 ? iw / 2 : (i / (data.length - 1)) * iw);
+  const y = (v) => m.t + ih - (v / max) * ih;
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, class: "chart", role: "img",
+    "aria-label": `Revenue per day, from ${usd(Math.min(...data.map((d) => d.revenue)))} to ${usd(Math.max(...data.map((d) => d.revenue)))}. Use “Show table” for exact values.` }, box);
+  for (let i = 0; i <= steps; i++) {
+    const v = step * i;
+    el("line", { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), stroke: i ? "var(--grid)" : "var(--axis)", "stroke-width": 1 }, svg);
+    el("text", { x: m.l - 8, y: y(v) + 4, "text-anchor": "end" }, svg).textContent = short(v);
+  }
+  const ticks = Math.min(data.length, Math.max(2, Math.floor(iw / 90)));
+  for (let k = 0; k < ticks; k++) {
+    const i = Math.round((k / (ticks - 1 || 1)) * (data.length - 1));
+    el("text", { x: x(i), y: H - 6, "text-anchor": k === 0 ? "start" : k === ticks - 1 ? "end" : "middle" }, svg).textContent = fmtDay(data[i].date);
+  }
+  el("path", { d: data.map((d, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(d.revenue).toFixed(1)}`).join(""),
+    fill: "none", stroke: "var(--series-1)", "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }, svg);
+  const cross = el("line", { y1: m.t, y2: m.t + ih, stroke: "var(--axis)", "stroke-width": 1, visibility: "hidden" }, svg);
+  const dot = el("circle", { r: 5, fill: "var(--series-1)", stroke: "var(--surface)", "stroke-width": 2, visibility: "hidden" }, svg);
+  const hit = el("rect", { x: m.l, y: 0, width: iw, height: H, fill: "transparent" }, svg);
+  const tip = $("daily-tip"), card = box.parentElement;
+  const move = (e) => {
+    const r = svg.getBoundingClientRect(), px = ((e.clientX - r.left) / r.width) * W;
+    const i = Math.max(0, Math.min(data.length - 1, Math.round(((px - m.l) / iw) * (data.length - 1))));
+    const d = data[i];
+    for (const n of [cross, dot]) n.setAttribute("visibility", "visible");
+    cross.setAttribute("x1", x(i)); cross.setAttribute("x2", x(i));
+    dot.setAttribute("cx", x(i)); dot.setAttribute("cy", y(d.revenue));
+    const scale = r.width / W;
+    showTip(tip, card, box.offsetLeft + x(i) * scale, box.offsetTop + y(d.revenue) * scale,
+      `${fmtDay(d.date, true)}<br><b>${usd(d.revenue, 2)}</b> · ${d.orders} order${d.orders === 1 ? "" : "s"}`);
+  };
+  hit.addEventListener("pointermove", move);
+  hit.addEventListener("pointerdown", move);
+  hit.addEventListener("pointerleave", () => { tip.style.opacity = 0; cross.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); });
+}
+
+// Horizontal bars: product name above each bar, value at the end, 4px rounded data end, tooltip per bar.
+function drawBars(items) {
+  const box = $("products-chart"); box.innerHTML = "";
+  if (!items.length) { box.textContent = "No sales in this period."; return; }
+  const W = Math.max(box.clientWidth, 260), row = 30, H = items.length * row + 4, bar = 10, valW = 64;
+  const max = Math.max(...items.map((d) => d.revenue)), iw = W - valW;
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, class: "chart", role: "img", "aria-label": `Top ${items.length} products by revenue. Best seller: ${items[0].name}, ${usd(items[0].revenue)}.` }, box);
+  const tip = $("products-tip"), card = box.parentElement;
+  items.forEach((d, i) => {
+    const top = i * row, w = Math.max(4, (d.revenue / max) * iw), by = top + 15;
+    const name = el("text", { x: 0, y: top + 11, style: "fill:var(--ink-2);font-size:12px" }, svg);
+    name.textContent = d.name.length > 34 ? d.name.slice(0, 33) + "…" : d.name;
+    // flat at the baseline, 4px radius at the data end
+    el("path", { d: `M0,${by}H${w - 4}a4,4 0 0 1 4,4v${bar - 8}a4,4 0 0 1 -4,4H0Z`, fill: "var(--series-1)" }, svg);
+    el("text", { x: W, y: by + 9, "text-anchor": "end", style: "fill:var(--ink);font-size:12px" }, svg).textContent = short(Math.round(d.revenue));
+    const hit = el("rect", { x: 0, y: top, width: W, height: row, fill: "transparent" }, svg);
+    const show = () => {
+      const scale = svg.getBoundingClientRect().width / W;
+      showTip(tip, card, box.offsetLeft + (w / 2) * scale, box.offsetTop + by * scale,
+        `${esc(d.name)}<br><b>${usd(d.revenue, 2)}</b> · ${d.qty} sold`);
+    };
+    hit.addEventListener("pointerenter", show);
+    hit.addEventListener("pointerdown", show);
+    hit.addEventListener("pointerleave", () => (tip.style.opacity = 0));
+  });
+}
+
+let resizeTimer;
+addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => last && !$("dash").hidden && render(), 150); });
+if (new URLSearchParams(location.search).has("sample")) $("sample").click();  // ?sample opens the demo straight away
+</script>
+</body>
+</html>
