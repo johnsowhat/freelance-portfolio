@@ -24,7 +24,7 @@
     '@media (prefers-color-scheme:dark){:host{--accent:#3fb388;--bg:#1a211e;--ink:#e9efec;--muted:#9aa8a2;--line:#2c3632;--bot:#232c28}}' +
     '*{box-sizing:border-box;font-family:system-ui,-apple-system,sans-serif}' +
     '.btn{position:fixed;right:20px;bottom:20px;width:60px;height:60px;border-radius:50%;border:0;background:var(--accent);color:#fff;' +
-    'cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.25);font-size:26px;z-index:2147483646}' +
+    'cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.25);display:grid;place-items:center;z-index:2147483646}' +
     '.panel{position:fixed;right:20px;bottom:92px;width:370px;max-width:calc(100vw - 32px);height:540px;max-height:calc(100vh - 120px);' +
     'background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.25);' +
     'display:none;flex-direction:column;overflow:hidden;z-index:2147483647}' +
@@ -48,7 +48,8 @@
     '<button class="close" aria-label="Close chat">×</button></div>' +
     '<div class="log" aria-live="polite"></div><div class="typing"></div>' +
     '<form><input maxlength="1000" placeholder="Type your question…" aria-label="Your message"><button type="submit">Send</button></form></div>' +
-    '<button class="btn" aria-label="Open chat">💬</button>';
+    '<button class="btn" aria-label="Open chat"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg></button>';
 
   var $ = function (s) { return root.querySelector(s); };
   var panel = $(".panel"), log = $(".log"), input = $("input"), send = $("form button"), typing = $(".typing");

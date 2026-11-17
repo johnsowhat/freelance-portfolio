@@ -4,6 +4,11 @@ An AI assistant for any website (WordPress, Shopify, Webflow, Wix, plain HTML) t
 
 Demo: a fictional dental clinic, *Evergreen Family Dental*.
 
+<p>
+  <img src="screenshots/chat-desktop.png" alt="AI chat open on the demo clinic website, answering questions about insurance and whitening prices" width="68%">
+  <img src="screenshots/chat-mobile.png" alt="The same chat on a phone screen" width="28%">
+</p>
+
 ```html
 <!-- the whole installation on the client's site -->
 <script src="https://your-chat-server.com/widget.js" defer></script>

@@ -2,6 +2,8 @@
 
 Small, production-minded tools for local businesses and online shops: Telegram bots, AI assistants, web scraping and daily reports.
 
+![AI website chat answering a visitor on a demo dental clinic site](ai-chat-widget/screenshots/chat-desktop.png)
+
 | Project | What it does | Stack |
 |---|---|---|
 | [AI Website Chat](ai-chat-widget/) | A chat bubble for any website (one line of code) that answers visitors from the company's own documents, captures leads and sends them by email and Slack, with an owner dashboard. | Python, Claude API (tool use), JavaScript, Slack, SMTP |
