@@ -11,6 +11,6 @@ Small, production-minded tools for local businesses and online shops: AI website
 | [AI Lead Handler](lead-ai/) | Website form where AI scores every lead hot/warm/cold, summarises it and drafts a personal reply, then sends it to the owner by email (hit Reply to answer the client), Slack or Telegram. No lead is ever lost. | Python, Claude API, SMTP, Slack, Telegram |
 | [Competitor Price Monitor](price-monitor/) | Scrapes a shop's whole catalogue every day, compares it with yesterday and sends a report by email, Slack or Telegram with price drops, rises, stock changes and an Excel-ready CSV. | Python, web scraping, SMTP, Slack, Telegram |
 
-Both projects come with self-tests (`python3 <file> test`) and need no paid services to try out.
+Every project comes with self-tests (`python3 <file> test`) and need no paid services to try out.
 
 **Need something like this for your business?** Each project is customised per client: your services, your competitor sites, your language, your schedule.
