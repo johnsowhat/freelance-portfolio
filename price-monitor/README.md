@@ -1,4 +1,4 @@
-# Competitor Price Monitor with Daily Telegram Reports
+# Competitor Price Monitor with Daily Email / Slack Reports
 
 Every day it scrapes a shop's full catalogue, compares it with the previous day and sends you a short report plus a CSV file you can open in Excel or Google Sheets.
 
@@ -23,12 +23,13 @@ Compared with 2026-11-16
 - Walks through every catalogue page politely (pauses between requests)
 - Saves a dated CSV snapshot per day: title, price, rating, stock, link
 - Detects price changes with %, stock changes, new and removed products
-- Sends the report and the CSV to Telegram, or just prints it
+- Sends the report by **email (CSV attached)**, **Slack** and/or **Telegram**, any combination; one broken channel never blocks the others
 - Fails loudly if the site layout changes, instead of sending an empty report
 
 ## Run
 ```bash
-BOT_TOKEN=... ADMIN_ID=... python3 monitor.py    # without them it only prints the report
+SMTP_HOST=... SMTP_USER=... SMTP_PASSWORD=... NOTIFY_EMAIL=... python3 monitor.py
+# or SLACK_WEBHOOK_URL=...  or BOT_TOKEN=... ADMIN_ID=...  (nothing set: it just prints the report)
 python3 monitor.py test                          # self-tests
 ```
 Daily at 9:00 with cron: `0 9 * * * /path/to/price-monitor/run.sh`

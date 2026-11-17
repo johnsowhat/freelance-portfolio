@@ -1,11 +1,16 @@
-"""AI lead handler: website form -> AI scores the lead and drafts a reply -> Telegram alert + CSV log.
+"""AI lead handler: website form -> AI scores the lead and drafts a reply -> email / Slack / Telegram alert + CSV log.
 
-Run:   BOT_TOKEN=... ADMIN_ID=... ANTHROPIC_API_KEY=... python3 app.py   then open http://127.0.0.1:8000
+Run:   ANTHROPIC_API_KEY=... python3 app.py   then open http://127.0.0.1:8000
 Test:  python3 app.py test
+Alerts go to every channel that is configured:
+  email:    SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, NOTIFY_EMAIL
+  Slack:    SLACK_WEBHOOK_URL
+  Telegram: BOT_TOKEN, ADMIN_ID
 Without ANTHROPIC_API_KEY it still works, with simple rule-based scoring and a template reply.
 """
-import csv, html, json, os, sys, urllib.parse, urllib.request
+import csv, html, json, os, smtplib, sys, urllib.parse, urllib.request
 from datetime import datetime
+from email.message import EmailMessage
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -82,20 +87,45 @@ def save(row):
             w.writeheader()
         w.writerow(row)
 
+def post_json(url, payload):
+    req = urllib.request.Request(url, json.dumps(payload).encode(), {"Content-Type": "application/json"})
+    urllib.request.urlopen(req, timeout=20).close()
+
+def build_email(row, text):
+    msg = EmailMessage()
+    msg["Subject"] = f"[{row['score'].upper()} lead] {row['name']}: {row['summary'][:70]}"
+    msg["From"] = os.environ.get("SMTP_USER") or os.environ["NOTIFY_EMAIL"]
+    msg["To"] = os.environ["NOTIFY_EMAIL"]
+    if "@" in row["email"]:
+        msg["Reply-To"] = row["email"]  # hitting Reply answers the client directly
+    msg.set_content(text)
+    return msg
+
+def send_email(msg):
+    with smtplib.SMTP(os.environ["SMTP_HOST"], int(os.environ.get("SMTP_PORT", "587")), timeout=20) as s:
+        s.starttls()
+        if os.environ.get("SMTP_USER"):
+            s.login(os.environ["SMTP_USER"], os.environ.get("SMTP_PASSWORD", ""))
+        s.send_message(msg)
+
 def notify(row):
-    if not (TOKEN and ADMIN_ID):
-        return
+    """Alert the owner on every channel that is configured: email, Slack, Telegram."""
     icon = {"hot": "🔥", "warm": "🙂", "cold": "🧊"}[row["score"]]
     text = (f"{icon} New {row['score'].upper()} lead\n{row['summary']}\n\n"
             f"👤 {row['name']}\n✉️ {row['email'] or '—'}\n📞 {row['phone'] or '—'}\n💰 {row['budget']}\n\n"
             f"💬 {row['message'][:800]}\n\n✍️ Suggested reply:\n{row['reply'][:1500]}")
-    req = urllib.request.Request(f"https://api.telegram.org/bot{TOKEN}/sendMessage",
-                                 json.dumps({"chat_id": ADMIN_ID, "text": text[:4000]}).encode(),
-                                 {"Content-Type": "application/json"})
-    try:
-        urllib.request.urlopen(req, timeout=20).close()
-    except Exception as e:  # lead is already saved in the CSV
-        print("Telegram error:", e, flush=True)
+    channels = {
+        "email": (os.environ.get("SMTP_HOST") and os.environ.get("NOTIFY_EMAIL"), lambda: send_email(build_email(row, text))),
+        "Slack": (os.environ.get("SLACK_WEBHOOK_URL"), lambda: post_json(os.environ["SLACK_WEBHOOK_URL"], {"text": text})),
+        "Telegram": (TOKEN and ADMIN_ID, lambda: post_json(f"https://api.telegram.org/bot{TOKEN}/sendMessage",
+                                                            {"chat_id": ADMIN_ID, "text": text[:4000]})),
+    }
+    for name, (enabled, send) in channels.items():
+        if enabled:
+            try:
+                send()
+            except Exception as e:  # lead is already saved in the CSV; other channels still get it
+                print(f"{name} error:", e, flush=True)
 
 def handle_lead(form):
     lead, error = validate(form)
@@ -183,6 +213,11 @@ def self_test():
     assert rule_qualify(lead)["score"] == "cold" and "Hi Ann" in rule_qualify(lead)["reply"]
     row, err = handle_lead({"name": "Bob", "phone": "+1 512 555 0101", "message": "Bathroom", "budget": "$5k–$20k"})
     assert not err and row["score"] == "warm" and [r["name"] for r in csv.DictReader(open(LEADS))] == ["Bob"]
+    os.environ["NOTIFY_EMAIL"] = "owner@example.com"
+    mail = build_email({**row, "email": "bob@example.com"}, "body")
+    assert mail["Reply-To"] == "bob@example.com" and mail["Subject"].startswith("[WARM lead] Bob")
+    assert "Reply-To" not in build_email(row, "body")  # phone-only lead: no reply address
+    os.environ.pop("NOTIFY_EMAIL")
     page = render_form({"name": "<script>x</script>"}, "oops")
     assert "<script>x" not in page and "&lt;script&gt;" in page and "oops" in page  # no HTML injection
     print("All tests passed ✅")

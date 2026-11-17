@@ -1,14 +1,19 @@
 """Competitor price monitor: scrapes a shop's catalogue, saves a daily CSV snapshot,
-compares it with the previous one and sends a report to Telegram. Pure Python stdlib.
+compares it with the previous one and sends the report by email, Slack and/or Telegram. Pure Python stdlib.
 
-Run:   BOT_TOKEN=... ADMIN_ID=... python3 monitor.py      (without them it only prints the report)
+Run:   python3 monitor.py      (with no channel configured it only prints the report)
 Test:  python3 monitor.py test
+Channels (any combination):
+  email:    SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, NOTIFY_EMAIL   (CSV attached)
+  Slack:    SLACK_WEBHOOK_URL
+  Telegram: BOT_TOKEN, ADMIN_ID                                            (CSV attached)
 
 Demo target: books.toscrape.com, a public sandbox shop made for scraping practice.
 For a real client, change BASE and the ITEM pattern to their competitor's site.
 """
-import csv, json, os, re, sys, time, urllib.request, uuid
+import csv, json, os, re, smtplib, sys, time, urllib.request, uuid
 from datetime import date
+from email.message import EmailMessage
 from html import unescape
 from pathlib import Path
 
@@ -107,13 +112,47 @@ def telegram(method, body, content_type):
     with urllib.request.urlopen(req, timeout=60) as r:
         return json.load(r)
 
-def send_report(text, csv_path):
+def send_telegram(text, csv_path):
     telegram("sendMessage", json.dumps({"chat_id": ADMIN_ID, "text": text[:4000]}).encode(), "application/json")
     b = uuid.uuid4().hex
     body = (f'--{b}\r\nContent-Disposition: form-data; name="chat_id"\r\n\r\n{ADMIN_ID}\r\n'
             f'--{b}\r\nContent-Disposition: form-data; name="document"; filename="prices-{csv_path.name}"\r\n'
             f'Content-Type: text/csv\r\n\r\n').encode() + csv_path.read_bytes() + f'\r\n--{b}--\r\n'.encode()
     telegram("sendDocument", body, f"multipart/form-data; boundary={b}")
+
+def build_email(text, csv_path):
+    msg = EmailMessage()
+    msg["Subject"] = text.splitlines()[0].lstrip("📊 ")
+    msg["From"] = os.environ.get("SMTP_USER") or os.environ["NOTIFY_EMAIL"]
+    msg["To"] = os.environ["NOTIFY_EMAIL"]  # comma-separated list works too
+    msg.set_content(text + "\n\nFull price list attached (opens in Excel or Google Sheets).")
+    msg.add_attachment(csv_path.read_bytes(), maintype="text", subtype="csv", filename=f"prices-{csv_path.name}")
+    return msg
+
+def send_email(msg):
+    with smtplib.SMTP(os.environ["SMTP_HOST"], int(os.environ.get("SMTP_PORT", "587")), timeout=30) as s:
+        s.starttls()
+        if os.environ.get("SMTP_USER"):
+            s.login(os.environ["SMTP_USER"], os.environ.get("SMTP_PASSWORD", ""))
+        s.send_message(msg)
+
+def send_report(text, csv_path):
+    """Send to every configured channel; returns the names that worked."""
+    channels = {
+        "email": (os.environ.get("SMTP_HOST") and os.environ.get("NOTIFY_EMAIL"), lambda: send_email(build_email(text, csv_path))),
+        "Slack": (os.environ.get("SLACK_WEBHOOK_URL"), lambda: urllib.request.urlopen(urllib.request.Request(
+            os.environ["SLACK_WEBHOOK_URL"], json.dumps({"text": text}).encode(), {"Content-Type": "application/json"}), timeout=30).close()),
+        "Telegram": (TOKEN and ADMIN_ID, lambda: send_telegram(text, csv_path)),
+    }
+    sent = []
+    for name, (enabled, send) in channels.items():
+        if enabled:
+            try:
+                send()
+                sent.append(name)
+            except Exception as e:  # one broken channel shouldn't stop the others
+                print(f"{name} error:", e, flush=True)
+    return sent
 
 
 def main():
@@ -126,9 +165,8 @@ def main():
     save(items, path)
     text = report(items, prev and prev.stem, *compare(load(prev), items) if prev else ([], [], [], []))
     print(text)
-    if TOKEN and ADMIN_ID:
-        send_report(text, path)
-        print("\nSent to Telegram ✅")
+    if sent := send_report(text, path):
+        print(f"\nSent by {', '.join(sent)} ✅")
 
 
 def make_demo_yesterday():
@@ -173,6 +211,17 @@ def self_test():
     DATA = Path(tempfile.mkdtemp())
     save(new, DATA / "2030-01-02.csv")
     assert load(DATA / "2030-01-02.csv")[0]["price"] == 8.0 and previous_snapshot("2030-01-03").stem == "2030-01-02"
+
+    os.environ["NOTIFY_EMAIL"] = "owner@example.com"
+    mail = build_email(text, DATA / "2030-01-02.csv")
+    att = next(mail.iter_attachments())
+    assert mail["Subject"].startswith("Price report") and att.get_filename() == "prices-2030-01-02.csv"
+    assert b"8.0" in att.get_content().encode()
+    os.environ.pop("NOTIFY_EMAIL")
+    globals()["TOKEN"] = ""
+    for k in ("SMTP_HOST", "SLACK_WEBHOOK_URL"):
+        os.environ.pop(k, None)
+    assert send_report(text, DATA / "2030-01-02.csv") == []  # nothing configured: nothing sent, no crash
     print("All tests passed ✅")
 
 
